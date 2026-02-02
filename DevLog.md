@@ -69,27 +69,27 @@
 
 **Date:** 2026-01-26
 
-## 5. IMU Integration (WitMotion WT901C)
-#### 5.1 Driver Availability Issue (Repository 404)
+## 1. IMU Integration (WitMotion WT901C)
+#### 1.1 Driver Availability Issue (Repository 404)
 - **Issue:** `witmotion_ros2` 및 `EAVISE` 등 주요 오픈소스 드라이버의 GitHub 저장소가 삭제됨(404 Not Found).
 - **Solution:** Custom Python Driver 개발.
   - `pyserial` 라이브러리를 이용해 `/dev/ttyUSB0`의 Raw Hex 데이터를 직접 파싱하고, ROS 2 sensor_msgs/Imu 타입의 /imu/data 토픽으로 발행하는 노드(`driver.py`)를 직접 구현하여 해결.
 
-#### 5.2 Hardware Configuration (Ubuntu-based Fix)
+#### 1.2 Hardware Configuration (Ubuntu-based Fix)
 - **Issue:** 드라이버 연결은 성공(`Connected`)했으나, 데이터가 `0000...` (Null)으로 들어오거나 침묵하는 현상 발생.
 - **Diagnosis:** 센서의 Baudrate(9600)와 코드 설정(115200) 불일치 및 데이터 출력 비활성화 상태.
 - **Solution:** Python Script를 이용한 Hex Command 주입 (Windows 환경에서 직접 바꾸기도 가능).
   - 별도의 설정 스크립트(`fix_sensor.py`)를 작성하여 리눅스 환경에서 직접 Hex 명령어 전송.
   - **Unlock** -> **Baudrate 115200 변경** -> **Output Rate 50Hz 설정** -> **Save** 순서로 명령어를 순차 주입하여 센서 강제 세팅 성공.
 
-#### 5.3 Hardware Connection Instability (Port Drifting)
+#### 1.3 Hardware Connection Instability (Port Drifting)
 - **Issue:** USB 케이블 재연결 시 포트가 `/dev/ttyUSB0`에서 `/dev/ttyUSB1`로 변경되어 `No such file` 에러 발생.
 - **Diagnosis:** 리눅스 커널이 기존 포트 세션을 유지한 채 새 장치로 인식함.
 - **Solution:**
   - 물리적 고정: 케이블 흔들림 방지.
   - 실행 전 확인: `ls /dev/ttyUSB*` 명령어로 포트 확인 후, 필요시 코드 내 `self.port` 파라미터 수정.
   
-#### 5.4 ROS 2 Environment Conflict
+#### 1.4 ROS 2 Environment Conflict
 - **Issue:** 드라이버는 정상 작동하는데 Rviz에서 데이터가 수신되지 않음.
 - **Diagnosis:**
   - **Alias 문제:** `local_setup.bash`만 로드하여 기본 ROS 패키지 경로가 누락됨.
@@ -98,19 +98,19 @@
 
 
 
-## 6. Visualization (Rviz2)
-#### 6.1 Missing IMU Plugin
+## 2. Visualization (Rviz2)
+#### 2.1 Missing IMU Plugin
 - **Issue:** Rviz2 `Add` 패널의 `By display type` 목록에 `Imu` 항목이 없음.
 - **Solution:** 플러그인 패키지 수동 설치.
   - `sudo apt install ros-humble-imu-tools` 설치 후 Rviz2 재실행.
 
-#### 6.2 Static Visualization (Arrows Not Moving)
+#### 2.2 Static Visualization (Arrows Not Moving)
 - **Issue:** 데이터는 들어오는데 Rviz 화면의 화살표(Axes)가 회전하지 않음.
 - **Diagnosis:** 초기 드라이버 코드가 `Angular Velocity`(각속도)만 전송하고, Rviz가 회전을 표현하는 데 필수적인 **`Orientation (Quaternion)`** 데이터를 계산하지 않음.
 - **Solution:** **Euler to Quaternion 변환 로직 추가.**
   - 센서의 각도 패킷(`0x53`)을 파싱하여 Roll, Pitch, Yaw를 구하고, 이를 Quaternion(x, y, z, w)으로 변환하는 수식을 `driver.py`에 추가하여 해결.
 
-#### 6.3 Topic Discovery Delay
+#### 2.3 Topic Discovery Delay
 - **Issue:** `ros2 topic list`에는 뜨지만 Rviz `By topic` 목록에 `/imu/data`가 즉시 뜨지 않음.
 - **Solution:** 목록 갱신을 기다리지 않고 Topic 입력란에 **/imu/data**를 **직접 타이핑(Manual Entry)**하여 강제 연결 성공.
 
