@@ -115,6 +115,15 @@ endif()
 
 ament_target_dependencies(fastlio_mapping ${dependencies})
 
+target_include_directories(fastlio_mapping PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/ikd-Tree> # 이 줄이 추가되었습니다.
+  $<INSTALL_INTERFACE:include>
+  ${PCL_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIR}
+  ${PYTHON_INCLUDE_DIRS}
+)
+
 # ---------------- Install --------------- #
 install(TARGETS fastlio_mapping
   DESTINATION lib/${PROJECT_NAME}

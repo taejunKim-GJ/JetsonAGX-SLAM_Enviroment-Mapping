@@ -43,7 +43,7 @@ namespace livox_ros {
 /** Lidar Data Distribute Control--------------------------------------------*/
 Lddc::Lddc(int format, int multi_topic, int data_src, int output_type,
            double frq, std::string &frame_id)
-    : transfer_format_(1),
+    : transfer_format_(format),
       use_multi_topic_(multi_topic),
       data_src_(data_src),
       output_type_(output_type),
@@ -409,8 +409,7 @@ uint32_t Lddc::PublishCustomPointcloud(LidarDataQueue *queue,
       livox_msg.timebase = timestamp;
       packet_offset_time = 0;
       /** convert to ros time stamp */
-      // livox_msg.header.stamp = rclcpp::Time(timestamp);  <-- 기존 코드 주석 처리
-      livox_msg.header.stamp = rclcpp::Clock().now();       // <-- 이걸로 변경! (현재 시간 사용)
+      livox_msg.header.stamp = rclcpp::Time(timestamp);
     } else {
       packet_offset_time = (uint32_t)(timestamp - livox_msg.timebase);
     }

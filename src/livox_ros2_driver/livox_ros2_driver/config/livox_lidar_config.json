@@ -1,7 +1,7 @@
 {
   "lidar_config": [
     {
-      "broadcast_code": "3WEDJBV001X6521",
+      "broadcast_code": "3WEDJBV001X6521", 
       "enable_connect": true,
       "enable_fan": true,
       "return_mode": 1,
@@ -16,10 +16,5 @@
     "comm_device_type": 0,
     "baudrate_index": 2,
     "parity_index": 0
-  },
-  "xfer_format": 1,
-  "multi_topic": 0,
-  "data_src": 0,
-  "publish_freq": 10.0,
-  "output_data_type": 0
+  }
 }
