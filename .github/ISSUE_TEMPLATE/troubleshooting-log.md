@@ -7,8 +7,8 @@ assignees: ''
 
 ---
 
-**Date:** 
-**Goal:** 
+- **Date:** 
+- **Goal:** 
 
 ---
 
@@ -21,5 +21,5 @@ assignees: ''
 ---
 
 Learned
--
--
+- 
+- 
