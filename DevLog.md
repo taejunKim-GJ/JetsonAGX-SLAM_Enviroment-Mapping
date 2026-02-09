@@ -1,4 +1,4 @@
-# DevLog: Project Troubleshooting
+# DevLog: Troubleshooting Log
 
 ---
 
@@ -46,8 +46,11 @@
 - **Solution:** `source /opt/ros/humble/setup.bash`
 
 #### 3.3 'shared_ptr' error in SDK
-- **Issue**: 최신 컴파일러(GCC 11)에서 헤더 누락.
+- **Issue:** 최신 Ubuntu 환경(GCC 11 이상)에서 Livox SDK 빌드 시 `<thread>` 관련 헤더 누락으로 컴파일 에러 발생.
 - **Solution:** `Livox-SDK/sdk_core/src/base/thread_base.h` 파일에 `#include <memory>` 추가.
+```bash
+    sed -i '29i #include <memory>' Livox-SDK/sdk_core/src/base/thread_base.h
+```
 
 #### 3.4 'recompile with -fPIC' (Linker Error)
 - **Issue**: SDK 빌드 시 공유 라이브러리 옵션 꺼짐.
@@ -99,20 +102,16 @@
 
 
 ## 2. Visualization (Rviz2)
-#### 2.1 Missing IMU Plugin
-- **Issue:** Rviz2 `Add` 패널의 `By display type` 목록에 `Imu` 항목이 없음.
-- **Solution:** 플러그인 패키지 수동 설치.
-  - `sudo apt install ros-humble-imu-tools` 설치 후 Rviz2 재실행.
-
-#### 2.2 Static Visualization (Arrows Not Moving)
+#### 2.1 Static Visualization (Arrows Not Moving)
 - **Issue:** 데이터는 들어오는데 Rviz 화면의 화살표(Axes)가 회전하지 않음.
 - **Diagnosis:** 초기 드라이버 코드가 `Angular Velocity`(각속도)만 전송하고, Rviz가 회전을 표현하는 데 필수적인 **`Orientation (Quaternion)`** 데이터를 계산하지 않음.
 - **Solution:** **Euler to Quaternion 변환 로직 추가.**
   - 센서의 각도 패킷(`0x53`)을 파싱하여 Roll, Pitch, Yaw를 구하고, 이를 Quaternion(x, y, z, w)으로 변환하는 수식을 `driver.py`에 추가하여 해결.
 
-#### 2.3 Topic Discovery Delay
+#### 2.2 Topic Discovery Delay
 - **Issue:** `ros2 topic list`에는 뜨지만 Rviz `By topic` 목록에 `/imu/data`가 즉시 뜨지 않음.
 - **Solution:** 목록 갱신을 기다리지 않고 Topic 입력란에 **/imu/data**를 **직접 타이핑(Manual Entry)**하여 강제 연결 성공.
 
+> 서칭할 때, 정확한 모델명보단 제조사까지만 쓰고, 뒤에 툴을 붙이자.(witmotion wt901c x, witmotion ros2 o)
 ---
 

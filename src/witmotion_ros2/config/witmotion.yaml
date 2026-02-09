@@ -2,8 +2,8 @@ witmotion_node:
   ros__parameters:
     port: /dev/ttyUSB0
     baud_rate: 115200 # baud
-    update_rate: 50.0 # Hz
-    rate: 50.0 
+    update_rate: 200.0 # Hz
+    rate: 200.0
     topic_name: /witmotion/imu
     frame_id: base_link
     imu_linear_acceleration_covariance: [0.0364, 0.0, 0.0, 0.0, 0.0048, 0.0, 0.0, 0.0, 0.0796]
