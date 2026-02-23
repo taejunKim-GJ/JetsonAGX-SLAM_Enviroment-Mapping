@@ -18,7 +18,7 @@
 | :--- | :--- | :--- | :--- |
 | **LiDAR** | Livox Horizon | ✅ Ready | Ethernet (Converter 2.0) |
 | **IMU** | WitMotion WT901C | ✅ Ready | USB (Serial) |
-| **Camera** | ZED 2 (Stereo) | 🚧 Pending | USB 3.0 |
+| **Camera** | ZED X (Stereo) | ✅ Ready | ZED QUAD Capture Card |
 | **PC** | Nvidia Jetson AGX | ✅ Ready | - |
 | **Power** | CUKTECH P23 (25,000mAh) | ✅ Ready | 12V DC (PD Output) |
 
@@ -109,7 +109,7 @@ sudo chmod 777 /dev/ttyUSB0
 **Terminal 1: Sensor Drivers (LiDAR)**
 ```bash
 # LiDAR Driver 실행
-ros2 launch livox_ros2_driver livox_lidar_rviz_launch.py
+ros2 launch livox_ros2_driver livox_lidar_msg_launch.py
 ```
 
 **Terminal 2: Sensor Drivers (IMU)**
