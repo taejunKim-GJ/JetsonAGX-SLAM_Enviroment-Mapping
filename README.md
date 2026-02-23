@@ -31,7 +31,7 @@
 ### 2.1 Clone Repository
 전체 프로젝트를 다운로드합니다.
 ```bash
-cd workspace
+cd ros2_ws
 git clone https://github.com/taejunKim-GJ/Enviroment-Mapping-Slam.git
 ```
 
@@ -55,7 +55,7 @@ make -j$(nproc)
 sudo make install
 
 # 다시 워크스페이스 루트로 복귀
-cd ~/workspace
+cd ~/ros2_ws
 ```
 
 ### 2.3 Build Workspace
@@ -135,7 +135,7 @@ ros2 launch fast_lio mapping.launch.py
 ---
 
 This project uses code from 
-[Livox SDK](https://github.com/Livox-SDK/Livox-SDK.git)
-[Livox ROS2 Driver](https://github.com/Livox-SDK/livox_ros2_driver.git)
-[Witmotion ROS2 Driver](https://github.com/ioio2995/witmotion_ros2.git)
-[FAST-LIO2 ROS2](https://github.com/Ericsii/FAST_LIO_ROS2.git).
+- [Livox SDK](https://github.com/Livox-SDK/Livox-SDK.git)
+- [Livox ROS2 Driver](https://github.com/Livox-SDK/livox_ros2_driver.git)
+- [Witmotion ROS2 Driver](https://github.com/ioio2995/witmotion_ros2.git)
+- [FAST-LIO2 ROS2](https://github.com/Ericsii/FAST_LIO_ROS2.git).
