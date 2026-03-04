@@ -72,6 +72,7 @@ rosdep update
 rosdep install --from-paths src --ignore-src -r -y
 
 # 전체 패키지 빌드
+source /opt/ros/humble/setup.bash
 colcon build --symlink-install
 source install/setup.bash
 ```
