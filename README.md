@@ -16,10 +16,11 @@
 
 | Component | Model | Status | Connection |
 | :--- | :--- | :--- | :--- |
+| **PC** | Nvidia Jetson AGX | ✅ Ready | N/A (Central Hub) |
 | **LiDAR** | Livox Horizon | ✅ Ready | Ethernet (Converter 2.0) |
 | **IMU** | WitMotion WT901C | ✅ Ready | USB (Serial) |
-| **Camera** | ZED X (Stereo) | ✅ Ready | ZED QUAD Capture Card |
-| **PC** | Nvidia Jetson AGX | ✅ Ready | - |
+| **Camera** | ZED X (Stereo) | ✅ Ready | GMSL2 |
+| **Capture Card** | Stereolabs ZED Link Quad | ✅ Ready | MIPI CSI-2 |
 | **Power** | CUKTECH P23 (25,000mAh) | ✅ Ready | 12V DC (PD Output) |
 
 ---
@@ -47,7 +48,9 @@ sudo apt install libasio-dev
 저장소에 포함된 Livox SDK(GCC 11+ 호환 패치 적용됨)를 빌드하고 설치합니다.
 ```bash
 # 포함된 SDK 폴더로 이동
-cd dependencies/Livox-SDK/build
+cd dependencies/Livox-SDK
+mkdir build
+cd build
 
 # 빌드 및 설치
 cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON
