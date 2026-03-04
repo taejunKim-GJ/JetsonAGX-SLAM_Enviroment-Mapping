@@ -65,6 +65,8 @@ cd ~/ros2_ws
 모든 ROS 2 패키지를 한 번에 빌드합니다.
 ```bash
 # ROS 의존성 자동 설치
+sudo apt update
+sudo apt install ros-humble-pcl-ros
 sudo rosdep init
 rosdep update
 rosdep install --from-paths src --ignore-src -r -y
