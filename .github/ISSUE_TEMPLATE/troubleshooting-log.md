@@ -14,12 +14,34 @@ assignees: ''
 
 ## 1. 
 ### 1.1
-- **Issue:** 
-- **Diagnosis:** 
-- **Solution:** 
+- **Symptom:**
+  (사진, 내용)
+- **Root Cause:**
+  (사진, 내용)
+- **Resolution:**
+  (사진, 내용)
+
+### 1.2
+- **Symptom:**
+  
+- **Root Cause:**
+  
+- **Resolution:**
+  
+
+
+
+## 2. 
+### 2.1
+- **Symptom:**
+  
+- **Root Cause:**
+  
+- **Resolution:**
+  
 
 ---
 
-Learned
+## Learned
 - 
 - 
