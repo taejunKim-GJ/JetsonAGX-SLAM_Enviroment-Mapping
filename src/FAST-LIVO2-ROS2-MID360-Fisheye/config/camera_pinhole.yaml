@@ -4,7 +4,7 @@
       model: Pinhole
       width: 960
       height: 600
-      scale: 1.0
+      scale: 0.5
       fx: 368.0485
       fy: 367.7625
       cx: 481.3145

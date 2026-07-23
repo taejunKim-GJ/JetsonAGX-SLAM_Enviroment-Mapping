@@ -14,6 +14,17 @@
       extrinsic_R: [1., 0., 0., 0., 1., 0., 0., 0., 1.]
       Rcl: [0.8459084992484703, -0.4535552772229826, 0.28058228989439776, 0.3274101197085882, 0.026335829096533758, -0.9445152394843643, 0.4210005040514897, 0.8908389498719628, 0.17077628927755173]
       Pcl: [0.022648260370124056, -0.09188984649611615, -0.03436178897905727]
+
+    depth_integration:
+      enable: true
+      pcd_dir: "/home/raiv/fast_ws/src/FAST-LIVO2-ROS2-MID360-Fisheye/output_pcd"
+      var_scale: 0.1
+      time_threshold: 0.1
+      scale: 1.0
+      consistency_threshold: 0.2
+      filter_size: 0.05
+      max_dist: 10.0
+
     time_offset:
       imu_time_offset: 0.0
       img_time_offset: 0.0

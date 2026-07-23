@@ -92,7 +92,9 @@ def generate_launch_description():
                 # ("gdb -ex run --args"),
                 # ("valgrind --log-file=./valgrind_report.log --tool=memcheck --leak-check=full --show-leak-kinds=all -s --track-origins=yes --show-reachable=yes --undef-value-errors=yes --track-fds=yes")
             ],
-            output="screen"
+            output="screen",
+            sigterm_timeout='300.0',
+            sigkill_timeout='300.0',
         ),
 
         Node(

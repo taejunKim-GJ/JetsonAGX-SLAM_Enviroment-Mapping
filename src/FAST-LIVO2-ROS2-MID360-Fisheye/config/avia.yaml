@@ -17,8 +17,17 @@
              -0.00893191 , 0.0199001 , -0.999762, 
              0.999957 ,-0.00253696 ,0.00888316 ]
       Pcl: [ -0.033158, 0.142116,-0.033158]
-      
-      
+
+    depth_integration:
+      enable: true
+      pcd_dir: "/home/raiv/taejun_ws/src/FAST-LIVO2-ROS2-MID360-Fisheye/output_pcd"
+      var_scale: 0.1
+      time_threshold: 0.1
+      scale: 1.0
+      consistency_threshold: 0.2
+      filter_size: 0.01
+      max_dist: 10.0
+
     time_offset: 
       imu_time_offset: 0.0
       img_time_offset: 0.0
@@ -82,8 +91,8 @@
       pose_output_en: false
 
     pcd_save:
-      pcd_save_en: false
-      colmap_output_en: false # need to set interval = -1
+      pcd_save_en: true
+      colmap_output_en: true # need to set interval = -1
       filter_size_pcd: 0.15
       interval: -1
       map_file_path: "/home/maps/"

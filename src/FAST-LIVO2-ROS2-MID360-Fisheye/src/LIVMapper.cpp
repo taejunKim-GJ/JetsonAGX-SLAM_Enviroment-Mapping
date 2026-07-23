@@ -49,7 +49,11 @@ LIVMapper::LIVMapper(rclcpp::Node::SharedPtr &node, std::string node_name, const
   path.header.frame_id = "camera_init";
 }
 
-LIVMapper::~LIVMapper() {}
+LIVMapper::~LIVMapper()
+{
+  depth_stop = true;
+  if (depth_thread.joinable()) depth_thread.join();
+}
 
 void LIVMapper::readParameters(rclcpp::Node::SharedPtr &node)
 {
@@ -184,6 +188,16 @@ void LIVMapper::readParameters(rclcpp::Node::SharedPtr &node)
   this->node->get_parameter("publish.pub_scan_num", pub_scan_num);
   this->node->get_parameter("publish.pub_effect_point_en", pub_effect_point_en);
   this->node->get_parameter("publish.dense_map_en", dense_map_en);
+
+  // [Depth Integration]
+  depth_pcd_dir = try_declare.template operator()<std::string>("depth_integration.pcd_dir", depth_pcd_dir);
+  depth_integration_en = try_declare.template operator()<bool>("depth_integration.enable", depth_integration_en);
+  depth_var_scale = try_declare.template operator()<double>("depth_integration.var_scale", depth_var_scale);
+  depth_time_threshold = try_declare.template operator()<double>("depth_integration.time_threshold", depth_time_threshold);
+  depth_scale = try_declare.template operator()<double>("depth_integration.scale", depth_scale);
+  depth_consistency_threshold = try_declare.template operator()<double>("depth_integration.consistency_threshold", depth_consistency_threshold);
+  depth_filter_size = try_declare.template operator()<double>("depth_integration.filter_size", depth_filter_size);
+  depth_max_dist = try_declare.template operator()<double>("depth_integration.max_dist", depth_max_dist);
 }
 
 void LIVMapper::initializeComponents(rclcpp::Node::SharedPtr &node) 
@@ -236,6 +250,28 @@ void LIVMapper::initializeComponents(rclcpp::Node::SharedPtr &node)
   if (!exposure_estimate_en) p_imu->disable_exposure_est();
 
   slam_mode_ = (img_en && lidar_en) ? LIVO : imu_en ? ONLY_LIO : ONLY_LO;
+
+  if (depth_integration_en) {
+    // Apply 90 degree Pitch UP rotation (around Y axis)
+    // to correct the reported 90 degree downward tilt.
+    double angle = -90.0 * M_PI / 180.0; // Negative 90 on Y often lifts the front up depending on convention
+    Eigen::Matrix3d R_pitch_up;
+    R_pitch_up << cos(angle),  0, sin(angle),
+                  0,           1, 0,
+                  -sin(angle), 0, cos(angle);
+    // 2. 추가: 시선 축 기준으로 90도 회전 (Roll 보정)
+// 카메라 좌표계 기준으로 시선 축이 Z축이라면 Z축 회전 적용
+    double roll_angle = 90.0 * M_PI / 180.0; // 방향이 반대라면 -90.0 으로 변경
+    Eigen::Matrix3d R_roll;
+    R_roll << 1,         0,               0,
+              0, cos(roll_angle), -sin(roll_angle),
+              0, sin(roll_angle),  cos(roll_angle);
+    
+    R_c2i = R_roll*R_pitch_up; 
+    T_c2i = Eigen::Vector3d::Zero();
+
+    loadDepthFileIndex();
+  }
 }
 
 void LIVMapper::initializeFiles() 
@@ -314,6 +350,7 @@ void LIVMapper::initializeSubscribersAndPublishers(rclcpp::Node::SharedPtr &node
       img_topic, 200000, std::bind(&LIVMapper::img_cbk, this, std::placeholders::_1));
   }
   pubLaserCloudFullRes = this->node->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_registered", 100);
+  pubDepthOnly = this->node->create_publisher<sensor_msgs::msg::PointCloud2>("/depth_only_map", 100);
   pubNormal = this->node->create_publisher<visualization_msgs::msg::MarkerArray>("/visualization_marker", 100);
   pubSubVisualMap = this->node->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_visual_sub_map_before", 100);
   pubLaserCloudEffect = this->node->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_effected", 100);
@@ -328,6 +365,11 @@ void LIVMapper::initializeSubscribersAndPublishers(rclcpp::Node::SharedPtr &node
   mavros_pose_publisher = this->node->create_publisher<geometry_msgs::msg::PoseStamped>("/mavros/vision_pose/pose", 10);
   pubImage = it.advertise("/rgb_img", 1);
   pubImuPropOdom = this->node->create_publisher<nav_msgs::msg::Odometry>("/LIVO2/imu_propagate", 10000);
+  pubDenseGlobalMap = this->node->create_publisher<sensor_msgs::msg::PointCloud2>("/dense_global_map", 10);
+  all_depth_cloud.reset(new pcl::PointCloud<pcl::PointXYZRGB>());
+  if (depth_integration_en) {
+    depth_thread = std::thread(&LIVMapper::depthAccumulationLoop, this);
+  }
   imu_prop_timer = this->node->create_wall_timer(0.004s, std::bind(&LIVMapper::imu_prop_callback, this));
   voxelmap_manager->voxel_map_pub_= this->node->create_publisher<visualization_msgs::msg::MarkerArray>("/planes", 10000);
 }
@@ -640,9 +682,15 @@ void LIVMapper::handleLIO()
 
 void LIVMapper::savePCD() 
 {
+  // Stop background thread to prevent race conditions during refinement
+  depth_stop = true;
+  if (depth_thread.joinable()) {
+    std::cout << "[ savePCD ] Waiting for background depth thread to finish..." << std::endl;
+    depth_thread.join();
+  }
+
   if (pcd_save_en && (pcl_wait_save->points.size() > 0 || pcl_wait_save_intensity->points.size() > 0) && pcd_save_interval < 0) 
-  {
-    std::string raw_points_dir = std::string(ROOT_DIR) + "Log/PCD/all_raw_points.pcd";
+{    std::string raw_points_dir = std::string(ROOT_DIR) + "Log/PCD/all_raw_points.pcd";
     std::string downsampled_points_dir = std::string(ROOT_DIR) + "Log/PCD/all_downsampled_points.pcd";
     pcl::PCDWriter pcd_writer;
 
@@ -686,6 +734,137 @@ void LIVMapper::savePCD()
                 << " with point count: " << pcl_wait_save_intensity->points.size() << RESET << std::endl;
     }
   }
+
+  // Save accumulated dense depth map
+  if (all_depth_cloud && !all_depth_cloud->empty()) {
+    std::string dense_map_dir = std::string(ROOT_DIR) + "Log/PCD/dense_merged_depth.pcd";
+    
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr downsampled_all(new pcl::PointCloud<pcl::PointXYZRGB>);
+    pcl::VoxelGrid<pcl::PointXYZRGB> voxel_filter;
+    voxel_filter.setInputCloud(all_depth_cloud);
+    voxel_filter.setLeafSize(depth_filter_size, depth_filter_size, depth_filter_size);
+    voxel_filter.filter(*downsampled_all);
+
+    pcl::PCDWriter pcd_writer;
+    pcd_writer.writeBinary(dense_map_dir, *downsampled_all);
+    std::cout << GREEN << "Global dense depth map (downsampled) saved to: " << dense_map_dir 
+              << " with point count: " << downsampled_all->points.size() << " (original: " << all_depth_cloud->size() << ")" << RESET << std::endl;
+  }
+
+  // [Post-Refinement] Per-frame Scale Optimization against LiDAR Map
+  if (depth_integration_en && !depth_file_log.empty() && !trajectory_history.empty()) {
+    std::cout << BOLDYELLOW << "[ Refinement ] Starting Per-frame Scale Optimization..." << RESET << std::endl;
+    
+    all_depth_cloud->clear();
+    
+    struct VoxelAccumulator {
+        Eigen::Vector3d pos = Eigen::Vector3d::Zero();
+        Eigen::Vector3d color = Eigen::Vector3d::Zero();
+        int count = 0;
+    };
+    std::unordered_map<VOXEL_LOCATION, VoxelAccumulator> final_voxel_grid;
+
+    double last_valid_scale = depth_scale;
+    int total_files = depth_file_log.size();
+
+    for (size_t i = 0; i < depth_file_log.size(); ++i) {
+        double ts = depth_file_log[i].first;
+        auto pose_it = trajectory_history.lower_bound(ts);
+        if (pose_it == trajectory_history.end()) continue;
+        StatesGroup pose = pose_it->second;
+
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>());
+        if (pcl::io::loadPCDFile(depth_file_log[i].second, *cloud) == -1 || cloud->empty()) continue;
+
+        // Step 1: Compute optimal scale for THIS specific frame
+        double sum_num = 0.0, sum_den = 0.0;
+        int match_count = 0;
+
+        for (size_t j = 0; j < cloud->points.size(); j += 50) { // Sample points for speed
+            const auto &pt = cloud->points[j];
+            Eigen::Vector3d p_c(pt.x, pt.y, pt.z);
+            double dist = p_c.norm();
+            if (dist > depth_max_dist || dist < 0.5) continue; // Distance filter
+
+            Eigen::Vector3d p_w_base = pose.rot_end * (R_c2i * p_c + T_c2i) + pose.pos_end; // s=1.0
+
+            float vs = voxelmap_manager->config_setting_.max_voxel_size_;
+            VOXEL_LOCATION pos((int64_t)(p_w_base.x()/vs), (int64_t)(p_w_base.y()/vs), (int64_t)(p_w_base.z()/vs));
+            
+            auto it = voxelmap_manager->voxel_map_.find(pos);
+            if (it != voxelmap_manager->voxel_map_.end() && it->second->plane_ptr_->is_plane_) {
+                auto& plane = it->second->plane_ptr_;
+                
+                // Distance-based weighting (WLS)
+                double weight = 1.0 / (dist * dist + 1e-4);
+                
+                double den = plane->normal_.dot(pose.rot_end * R_c2i * p_c);
+                double num = -(plane->normal_.dot(pose.rot_end * T_c2i + pose.pos_end) + plane->d_);
+                if (std::abs(den) > 1e-4) {
+                    sum_num += weight * num * den;
+                    sum_den += weight * den * den;
+                    match_count++;
+                }
+            }
+        }
+
+        double local_scale = (match_count > 10 && sum_den > 0) ? (sum_num / sum_den) : last_valid_scale;
+        
+        // Clamp scale to reasonable bounds to prevent explosions from noise
+        local_scale = std::max(0.1, std::min(5.0, local_scale));
+        last_valid_scale = local_scale;
+
+        // Step 2: Accumulate points into a grid for averaging and noise filtering
+        for (auto &pt : cloud->points) {
+            Eigen::Vector3d p_c(pt.x * local_scale, pt.y * local_scale, pt.z * local_scale);
+            if (p_c.norm() > depth_max_dist * local_scale || p_c.norm() < 0.5) continue; // Distance filter
+
+            Eigen::Vector3d p_w = pose_it->second.rot_end * (R_c2i * p_c + T_c2i) + pose_it->second.pos_end;
+
+            float fs = depth_filter_size;
+            VOXEL_LOCATION d_pos((int64_t)(p_w.x()/fs), (int64_t)(p_w.y()/fs), (int64_t)(p_w.z()/fs));
+            // Correct indexing for negative values
+            if (p_w.x() < 0) d_pos.x -= 1;
+            if (p_w.y() < 0) d_pos.y -= 1;
+            if (p_w.z() < 0) d_pos.z -= 1;
+
+            auto& cell = final_voxel_grid[d_pos];
+            cell.pos += p_w;
+            cell.color += Eigen::Vector3d(pt.r, pt.g, pt.b);
+            cell.count++;
+        }
+
+        if (i % 20 == 0) {
+            std::cout << "[ Refinement ] Progress: " << (i*100/total_files) << "% | Local Scale [" << i << "]: " << local_scale << std::endl;
+        }
+    }
+
+    // Step 3: Final Fusion and Noise Removal
+    all_depth_cloud->clear();
+    for (auto const& [pos, data] : final_voxel_grid) {
+        // Noise Filter: Only keep voxels seen in at least 3 points/frames
+        // This removes random floating noise and single-frame depth errors
+        if (data.count < 3) continue; 
+
+        pcl::PointXYZRGB averaged_pt;
+        Eigen::Vector3d final_pos = data.pos / data.count;
+        Eigen::Vector3d final_col = data.color / data.count;
+        
+        averaged_pt.x = final_pos.x(); 
+        averaged_pt.y = final_pos.y(); 
+        averaged_pt.z = final_pos.z();
+        averaged_pt.r = static_cast<uint8_t>(final_col.x());
+        averaged_pt.g = static_cast<uint8_t>(final_col.y());
+        averaged_pt.b = static_cast<uint8_t>(final_col.z());
+        
+        all_depth_cloud->push_back(averaged_pt);
+    }
+
+    std::string refined_map_dir = std::string(ROOT_DIR) + "Log/PCD/dense_refined_final.pcd";
+    pcl::PCDWriter pcd_writer;
+    pcd_writer.writeBinary(refined_map_dir, *all_depth_cloud);
+    std::cout << BOLDGREEN << "[ Refinement ] Done! Cleaned map saved to: " << refined_map_dir << " (" << all_depth_cloud->size() << " pts)" << RESET << std::endl;
+  }
 }
 
 void LIVMapper::run(rclcpp::Node::SharedPtr &node) 
@@ -706,8 +885,12 @@ void LIVMapper::run(rclcpp::Node::SharedPtr &node)
     // if (!p_imu->imu_time_init) continue;
 
     stateEstimationAndMapping();
+    trajectory_history[LidarMeasures.last_lio_update_time] = _state;
+
+    if (depth_integration_en) {
+      processOfflineDepth(LidarMeasures.last_lio_update_time);
+    }
   }
-  savePCD();
 }
 
 void LIVMapper::prop_imu_once(StatesGroup &imu_prop_state, const double dt, V3D acc_avr, V3D angvel_avr)
@@ -1471,4 +1654,110 @@ void LIVMapper::publish_path(const rclcpp::Publisher<nav_msgs::msg::Path>::Share
   msg_body_pose.header.frame_id = "camera_init";
   path.poses.push_back(msg_body_pose);
   pubPath->publish(path);
+}
+
+void LIVMapper::loadDepthFileIndex() {
+  namespace fs = std::filesystem;
+  if (!fs::exists(depth_pcd_dir)) {
+    RCLCPP_ERROR(this->node->get_logger(), "Depth PCD directory does not exist: %s", depth_pcd_dir.c_str());
+    return;
+  }
+
+  for (const auto & entry : fs::directory_iterator(depth_pcd_dir)) {
+    if (entry.path().extension() == ".pcd" && entry.file_size() > 0) {
+      std::string filename = entry.path().filename().string();
+      try {
+        double timestamp = std::stod(filename.substr(0, filename.find_last_of('.')));
+        depth_map_index[timestamp] = entry.path().string();
+      } catch (...) {
+        RCLCPP_WARN(this->node->get_logger(), "Failed to parse timestamp from file: %s", filename.c_str());
+      }
+    }
+  }
+  RCLCPP_INFO(this->node->get_logger(), "Indexed %zu valid Depth PCD files.", depth_map_index.size());
+}
+
+void LIVMapper::processOfflineDepth(double current_time) {
+  std::unique_lock<std::mutex> lock(mtx_depth_queue);
+  depth_queue.push_back({current_time, _state});
+}
+
+void LIVMapper::depthAccumulationLoop() {
+  while (!depth_stop) {
+    std::pair<double, StatesGroup> data;
+    {
+      std::unique_lock<std::mutex> lock(mtx_depth_queue);
+      if (depth_queue.empty()) {
+        lock.unlock();
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        continue;
+      }
+      data = depth_queue.front();
+      depth_queue.pop_front();
+    }
+
+    double current_time = data.first;
+    StatesGroup slam_state = data.second;
+    double time_threshold = depth_time_threshold;
+
+    auto it = depth_map_index.lower_bound(current_time - time_threshold);
+    while (it != depth_map_index.end() && it->first <= current_time + time_threshold) {
+      pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>());
+      if (pcl::io::loadPCDFile(it->second, *cloud) == -1) {
+        it++; continue;
+      }
+      depth_file_log.push_back({it->first, it->second});
+
+      pcl::PointCloud<pcl::PointXYZRGB>::Ptr world_chunk(new pcl::PointCloud<pcl::PointXYZRGB>());
+      for (auto &pt : cloud->points) {
+        // Apply manual scale correction
+        Eigen::Vector3d p_c(pt.x * depth_scale, pt.y * depth_scale, pt.z * depth_scale);
+        
+        // 0. Distance Filter: Skip unstable far points
+        if (p_c.norm() > depth_max_dist) continue;
+
+        Eigen::Vector3d p_w = slam_state.rot_end * (R_c2i * p_c + T_c2i) + slam_state.pos_end;
+
+        // 1. VoxelMap Consistency Check (LiDAR Alignment)
+        float lidar_voxel_size = voxelmap_manager->config_setting_.max_voxel_size_;
+        float l_loc_xyz[3];
+        for (int j = 0; j < 3; j++) {
+            l_loc_xyz[j] = p_w[j] / lidar_voxel_size;
+            if (l_loc_xyz[j] < 0) { l_loc_xyz[j] -= 1.0; }
+        }
+        VOXEL_LOCATION l_pos((int64_t)l_loc_xyz[0], (int64_t)l_loc_xyz[1], (int64_t)l_loc_xyz[2]);
+        
+        auto l_iter = voxelmap_manager->voxel_map_.find(l_pos);
+        if (l_iter != voxelmap_manager->voxel_map_.end() && l_iter->second->plane_ptr_->is_plane_) {
+            double dist = std::abs(l_iter->second->plane_ptr_->normal_.dot(p_w) + l_iter->second->plane_ptr_->d_);
+            if (dist > depth_consistency_threshold) continue;
+        }
+
+        // 2. Runtime Redundancy Check (Occupancy Filter)
+        float d_loc_xyz[3];
+        for (int j = 0; j < 3; j++) {
+            d_loc_xyz[j] = p_w[j] / depth_filter_size;
+            if (d_loc_xyz[j] < 0) { d_loc_xyz[j] -= 1.0; }
+        }
+        VOXEL_LOCATION d_pos((int64_t)d_loc_xyz[0], (int64_t)d_loc_xyz[1], (int64_t)d_loc_xyz[2]);
+
+        if (occupied_voxels.find(d_pos) == occupied_voxels.end()) {
+            occupied_voxels.insert(d_pos);
+            pt.x = p_w.x(); pt.y = p_w.y(); pt.z = p_w.z();
+            world_chunk->push_back(pt);
+            all_depth_cloud->push_back(pt);
+        }
+      }
+
+      if (!world_chunk->empty()) {
+        sensor_msgs::msg::PointCloud2 chunk_msg;
+        pcl::toROSMsg(*world_chunk, chunk_msg);
+        chunk_msg.header.stamp = this->node->get_clock()->now();
+        chunk_msg.header.frame_id = "camera_init";
+        pubDenseGlobalMap->publish(chunk_msg);
+      }
+
+      it = depth_map_index.erase(it);
+    }
+  }
 }

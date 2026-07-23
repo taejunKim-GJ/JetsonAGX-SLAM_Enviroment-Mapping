@@ -89,13 +89,30 @@ void VoxelOctoTree::init_plane(const std::vector<pointWithVar> &points, VoxelPla
   plane->normal_ = Eigen::Vector3d::Zero();
   plane->points_size_ = points.size();
   plane->radius_ = 0;
-  for (auto pv : points)
+
+  double total_weight = 0.0;
+  plane->color_ = Eigen::Vector3d::Zero();
+  for (const auto &pv : points)
   {
-    plane->covariance_ += pv.point_w * pv.point_w.transpose();
-    plane->center_ += pv.point_w;
+    // Scalar weight based on the inverse of the trace of the variance
+    // Smaller variance -> Larger weight
+    double w = 1.0 / (pv.var.diagonal().sum() + 1e-6);
+    plane->center_ += w * pv.point_w;
+    plane->color_ += w * pv.color;
+    total_weight += w;
   }
-  plane->center_ = plane->center_ / plane->points_size_;
-  plane->covariance_ = plane->covariance_ / plane->points_size_ - plane->center_ * plane->center_.transpose();
+  plane->center_ /= total_weight;
+  plane->color_ /= total_weight;
+  plane->color_weight_ = total_weight;
+
+  for (const auto &pv : points)
+  {
+    Eigen::Vector3d diff = pv.point_w - plane->center_;
+    double w = 1.0 / (pv.var.diagonal().sum() + 1e-6);
+    plane->covariance_ += w * (diff * diff.transpose());
+  }
+  plane->covariance_ /= total_weight;
+
   Eigen::EigenSolver<Eigen::Matrix3d> es(plane->covariance_);
   Eigen::Matrix3cd evecs = es.eigenvectors();
   Eigen::Vector3cd evals = es.eigenvalues();
@@ -829,14 +846,12 @@ void VoxelMapManager::pubVoxelMap()
   }
   for (size_t i = 0; i < pub_plane_list.size(); i++)
   {
-    V3D plane_cov = pub_plane_list[i].plane_var_.block<3, 3>(0, 0).diagonal();
-    double trace = plane_cov.sum();
-    if (trace >= max_trace) { trace = max_trace; }
-    trace = trace * (1.0 / max_trace);
-    trace = pow(trace, pow_num);
-    uint8_t r, g, b;
-    mapJet(trace, 0, 1, r, g, b);
-    Eigen::Vector3d plane_rgb(r / 256.0, g / 256.0, b / 256.0);
+    Eigen::Vector3d plane_rgb = pub_plane_list[i].color_;
+    // If the color values are in [0, 255], scale to [0, 1] for RViz
+    if (plane_rgb.maxCoeff() > 1.0) {
+        plane_rgb /= 255.0;
+    }
+
     double alpha;
     if (pub_plane_list[i].is_plane_) { alpha = use_alpha; }
     else { alpha = 0; }
