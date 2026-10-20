@@ -26,8 +26,7 @@ Camera에서 얻은 Depth Point Cloud를 전역 좌표계로 변환하여 LiDAR 
 
 ### 하드웨어 / 통신 구조
 
-<!-- 추후 시스템 아키텍처 이미지 삽입 -->
-<!-- <img width="700" alt="Hardware Architecture" src="./docs/images/hardware_architecture.png" /> -->
+<img width="500" alt="Hardware Architecture" src="./docs/hardware_architecture.png" />
 
 | 구분 | 장비 | 통신 / 연결 | 역할 |
 |---|---|---|---|
@@ -39,22 +38,16 @@ Camera에서 얻은 Depth Point Cloud를 전역 좌표계로 변환하여 LiDAR 
 | System Power | Powercraft Battery | DC | Jetson 및 Capture Board 전원 공급 |
 | Power Circuit | DC-DC Regulator | DC | 입력 전압 조정 |
 
-Camera와 LiDAR 사이의 시차를 줄이기 위해 두 센서를 가깝게 배치하고,  
-좌표계 차이는 Pitch / Roll 변환을 적용해 보정했습니다.
 
 <br>
 
-### 소프트웨어 구조
+### 실제 하드웨어 구현
 
-| 구분 | 사용 기술 |
-|---|---|
-| OS | Ubuntu 22.04 |
-| Middleware | ROS 2 Humble |
-| SLAM | FAST-LIVO2 |
-| Depth Estimation | MoGe-2 |
-| Point Cloud | PCL |
-| Image Processing | OpenCV |
-| Language | C++, Python |
+<img width="400" src="./docs/hardware_image.jpg" />
+
+Camera와 LiDAR 사이의 시차를 줄이기 위해 두 센서를 가깝게 배치하고,  
+좌표계 차이는 Pitch / Roll 변환을 적용해 보정했습니다.
+
 
 <br>
 
@@ -83,6 +76,8 @@ JetsonAGX-SLAM_Enviroment-Mapping/
 
 ## 3. 핵심 기능
 
+<img width="700" src="./docs/system_pipeline.jpg" />
+
 ### 1) 멀티센서 데이터 취득
 
 LiDAR, IMU, Camera 데이터를 ROS 2 환경에서 수집합니다.
@@ -99,11 +94,12 @@ FAST-LIVO2를 이용하여 LiDAR와 IMU를 기반으로 6-DoF Odometry와 기본
 
 생성된 Odometry는 이후 Camera Depth Point Cloud를 Local Frame에서 Global Frame으로 변환할 때 기준으로 사용합니다.
 
-<!-- 추후 FAST-LIVO2 Mapping 결과 이미지 삽입 -->
 
 <br>
 
 ### 3) Camera Depth Integration
+
+<img width="700" src="./docs/mapping_pipeline.png" />
 
 ROS Bag의 Camera Frame에서 MoGe-2를 이용해 Depth Point Cloud를 생성합니다.
 
@@ -132,7 +128,6 @@ depth_integration:
 
 Camera Depth를 그대로 합치는 대신 기존 LiDAR Map의 공간 구조를 기준으로 사용할 Point를 선별하는 방식입니다.
 
-<!-- 추후 Depth Integration Pipeline 이미지 삽입 -->
 
 <br>
 
@@ -164,7 +159,7 @@ Depth Estimation 결과는 Depth Image 자체보다 최종 3D Point Cloud를 기
 
 FAST-LIVO2만 사용했을 때 누락되던 투명 영역에 Camera Depth를 추가하여 기존보다 조밀한 Point Cloud를 생성할 수 있음을 확인했습니다.
 
-<!-- Before / After Mapping 결과 이미지 삽입 -->
+<img width="700" src="./docs/diff.png" />
 
 <br>
 
@@ -189,19 +184,9 @@ FAST-LIVO2만 사용했을 때 누락되던 투명 영역에 Camera Depth를 추
 프로젝트 진행 중 발생한 하드웨어 및 개발 환경 문제는  
 재현 조건, 확인 과정, 원인, 해결 방법을 GitHub Issue에 별도로 기록하고 있습니다.
 
-### LiDAR Network Connection
-
-- 공식 문서의 IP 주소로 LiDAR 연결 실패
-- Host Network Interface 확인
-- `tcpdump`로 실제 LiDAR Packet 확인
-- 변경된 IP 확인 후 동일 Subnet으로 설정하여 통신 복구
-
-[LiDAR Network Troubleshooting Issue](https://github.com/taejunKim-GJ/JetsonAGX-SLAM_Enviroment-Mapping/issues/1)
-
-추가 Issue:
-
-- Jetson AGX / ROS 2 개발 환경 구성
-- ZED Link Quad JST Cable 극성 문제 및 통전 테스트
+- [LiDAR Network / ROS 2 Driver Troubleshooting](https://github.com/taejunKim-GJ/JetsonAGX-SLAM_Enviroment-Mapping/issues/1)
+- [Jetson AGX Orin JetPack Setup & Boot Troubleshooting](https://github.com/taejunKim-GJ/JetsonAGX-SLAM_Enviroment-Mapping/issues/3)
+- [ZED Link Quad JST Power Polarity Troubleshooting](https://github.com/taejunKim-GJ/JetsonAGX-SLAM_Enviroment-Mapping/issues/4)
 
 <br>
 
