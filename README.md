@@ -192,9 +192,34 @@ FAST-LIVO2만 사용했을 때 누락되던 투명 영역에 Camera Depth를 추
 
 ## 6. 시연 영상
 
+### 1) FAST-LIVO2 Mapping
+
+LiDAR와 IMU를 이용해 교내 환경을 Mapping하는 과정입니다.  
+RViz에서 Odometry와 Point Cloud가 누적되며 3D Map이 생성되는 과정을 확인할 수 있습니다. (4배속)
+
+https://github.com/user-attachments/assets/afc3aa3a-8895-4631-b7fa-fe37f658936f
+
+<br>
+
+### 2) MoGe-2 Depth Mapping
+
+Camera Image에 MoGe-2를 적용하여 생성한 Depth Point Cloud입니다.  
+프레임별 Depth 결과가 3D Point Cloud로 변환되는 과정을 확인할 수 있습니다. (6배속)
+
+https://github.com/user-attachments/assets/0892c7dc-daed-4b97-8fb1-5043fba58eaf
+
+<br>
+
+### 3) LiDAR Raw Map / MoGe-2 Refined Map 비교
+
+FAST-LIVO2로 생성한 LiDAR Raw Map과 MoGe-2 Depth를 반영한 결과를 비교했습니다.
+LiDAR에서 누락되던 유리창 주변 영역에 Depth Point가 추가되는 모습과, 두 Point Cloud의 분포 차이를 확인할 수 있습니다. (3배속)
+
+https://github.com/user-attachments/assets/a279139b-5288-45d8-a40f-08cce761a7df
 
 
 <br>
+
 
 ## 7. 프로젝트 자료
 
