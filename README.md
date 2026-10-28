@@ -254,9 +254,10 @@ Depth Estimation 모델 비교, 3D Point Cloud 실험 결과, 실패 사례 및 
 
 본 프로젝트는 다음 Open Source Project를 기반으로 진행했습니다.
 
-- [Livox SDK](https://github.com/Livox-SDK/Livox-SDK.git)
-- [Livox ROS2 Driver](https://github.com/Livox-SDK/livox_ros2_driver.git)
-- ZED ROS 2 Wrapper
-- FAST-LIVO2
-- FAST-LIVO2 ROS 2 Humble Port
-- MoGe-2
+- [Livox SDK](https://github.com/Livox-SDK/Livox-SDK)
+- [Livox ROS2 Driver](https://github.com/Livox-SDK/livox_ros2_driver)
+- [ZED ROS 2 Wrapper](https://github.com/stereolabs/zed-ros2-wrapper)
+- [FAST-LIVO2](https://github.com/hku-mars/FAST-LIVO2)
+- [Fast-FoundationStereo](https://github.com/NVlabs/Fast-FoundationStereo)
+- [FoundationStereo](https://github.com/NVlabs/FoundationStereo)
+- [MoGe-2](https://github.com/microsoft/MoGe)
